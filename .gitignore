@@ -1,5 +1,6 @@
 # coco_mini/
 val2017/
 val2017_annotations/
+__pycache__/
 
 *.pth
