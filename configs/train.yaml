@@ -1,0 +1,49 @@
+# ── Dataset ─────────────────────────────────────────────────────────────────
+# Point to coco_mini/ for quick local runs, or a full COCO root for production.
+# Supported layouts:
+#   <dataset_path>/annotations/instances_{split}2017.json  +  {split}2017/
+#   <dataset_path>/annotations.json  +  images/
+dataset_path: "coco_mini"
+split: "val"          # COCO split name (only for standard COCO layout)
+img_size: 480         # longest-edge resize target (px)
+train_ratio: 0.8      # fraction of dataset used for training
+num_workers: 0        # DataLoader worker processes (0 = main process only)
+seed: 42
+
+# ── Model ────────────────────────────────────────────────────────────────────
+num_classes: 80       # foreground classes (background handled separately)
+num_queries: 100      # number of object queries
+d_model: 256          # transformer embedding dimension
+num_heads: 8          # attention heads
+ffn_dim: 2048         # FFN hidden dimension in transformer layers
+dropout: 0.1
+num_encoders: 6       # encoder layers
+num_decoders: 6       # decoder layers
+
+# ── Training ─────────────────────────────────────────────────────────────────
+epochs: 300
+batch_size: 2
+grad_clip_max_norm: 0.1
+
+# ── Optimizer ────────────────────────────────────────────────────────────────
+# Backbone gets 10× lower LR than the transformer (standard DETR practice).
+lr_transformer: 1.0e-4
+lr_backbone: 1.0e-5
+weight_decay: 1.0e-4
+
+# ── Scheduler ────────────────────────────────────────────────────────────────
+# Epoch 0       : linear LR warmup over all batches.
+# Epoch lr_drop : LR is multiplied by 0.1 (StepLR).
+lr_drop: 100
+
+# ── Loss weights ─────────────────────────────────────────────────────────────
+# Total loss = lambda_class * CE + lambda_l1 * L1 + lambda_giou * GIoU
+lambda_class: 1.0
+lambda_l1: 5.0
+lambda_giou: 2.0
+no_object_weight: 0.1   # CE weight for the background / no-object class
+
+# ── Output ───────────────────────────────────────────────────────────────────
+checkpoint_dir: "checkpoints"
+checkpoint_name: "detr_best.pth"
+output_dir: "outputs"
