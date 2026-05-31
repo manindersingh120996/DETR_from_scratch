@@ -20,8 +20,16 @@ Runs entirely from the terminal — no Jupyter required. Supports CUDA, Apple Si
 ├── scripts/
 │   ├── train.sh        ← convenience wrapper for training
 │   └── inference.sh    ← convenience wrapper for inference
+├── pages/
+│   ├── 1_Training.py   ← Streamlit training page (live charts, log viewer, architecture diagram)
+│   ├── 2_Inference.py  ← Streamlit inference page (checkpoint loader, result viewer, architecture diagram)
+│   └── 3_History.py    ← Streamlit history page (past run metrics and curves)
+├── app.py              ← Streamlit home page + TensorBoard auto-launch
+├── run.bat             ← Windows one-click launcher
+├── .streamlit/
+│   └── config.toml     ← UI theme (dark navy + amber accent)
 ├── checkpoints/        ← saved model weights go here
-├── outputs/            ← training curves and inference figures go here
+├── outputs/            ← training curves, inference figures, live progress JSON, training log
 ├── requirements.txt
 └── from_scratch_implementation.ipynb   ← learning notebook (reference only)
 ```
@@ -42,6 +50,41 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 # 3. Install dependencies
 pip install -r requirements.txt
 ```
+
+---
+
+## Browser UI (Streamlit)
+
+A full browser UI is included — no command-line required for day-to-day use.
+
+### Launch
+
+```bash
+# Windows (recommended — avoids PATH issues)
+run.bat
+
+# Any platform
+python -m streamlit run app.py
+```
+
+Opens at **http://localhost:8501**. TensorBoard starts automatically in the background and is embedded inside the Training page.
+
+### Pages
+
+| Page | What it does |
+|---|---|
+| **Home** | Device summary (CUDA / MPS / CPU), quick-start guide |
+| **Training** | Start/stop training, live loss charts (auto-refresh every 3 s), training log viewer, TensorBoard embed, architecture diagram |
+| **Inference** | Load any checkpoint, pick an image + confidence threshold, view detections vs ground truth, architecture diagram with training/inference toggle |
+| **History** | Metrics and interactive loss curves from the last completed training run |
+
+### Cloud / RunPod / SSH
+
+```bash
+python -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+```
+
+Expose port `8501` in your cloud provider's settings. TensorBoard is embedded in the UI so no second port is needed.
 
 ---
 
@@ -242,3 +285,11 @@ Your system may not support NCCL. Try `NCCL_DEBUG=INFO torchrun ...` to diagnose
 
 **Apple Silicon (MPS) crashes**
 Ensure PyTorch ≥ 2.0 is installed. Some ops fall back to CPU automatically.
+
+**`Missing key(s) in state_dict: "backbone.backbone.0.weight"` / `Unexpected key(s): "_orig_mod.*"`**
+The checkpoint was saved from a `torch.compile()`-d model, which prefixes all keys with `_orig_mod.`. The inference code strips this automatically. If you load a checkpoint manually, strip the prefix before calling `load_state_dict`:
+```python
+sd = torch.load("checkpoints/detr_best.pth", map_location="cpu", weights_only=True)
+sd = {k.replace('_orig_mod.', ''): v for k, v in sd.items()}
+model.load_state_dict(sd)
+```

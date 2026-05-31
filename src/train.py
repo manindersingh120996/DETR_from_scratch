@@ -20,6 +20,8 @@ import sys
 
 import matplotlib
 matplotlib.use("Agg")   # headless-safe; must come before pyplot import
+
+from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -479,6 +481,7 @@ def main():
     # Optional: resume from checkpoint
     if args.resume and os.path.isfile(args.resume):
         state = torch.load(args.resume, map_location=device, weights_only=True)
+        state = {k.replace('_orig_mod.', ''): v for k, v in state.items()}
         (model.module if is_distributed() else model).load_state_dict(state)
         if is_main_process():
             print(f"[INFO] Resumed from {args.resume}")
@@ -537,6 +540,11 @@ def main():
         os.makedirs(checkpoint_dir, exist_ok=True)
         os.makedirs(output_dir, exist_ok=True)
 
+    # TensorBoard writer (rank 0 only)
+    writer = SummaryWriter(
+        log_dir=os.path.join(output_dir, "tensorboard")
+    ) if is_main_process() else None
+
     # ── Training loop ────────────────────────────────────────────────────────
     epochs = cfg.get("epochs", 300)
 
@@ -568,11 +576,44 @@ def main():
             )
             if val_stats["total"] < best_val_loss:
                 best_val_loss = val_stats["total"]
-                state = (model.module if is_distributed() else model).state_dict()
-                torch.save(state, os.path.join(checkpoint_dir, checkpoint_name))
+                raw = model.module if is_distributed() else model
+                raw = getattr(raw, '_orig_mod', raw)  # unwrap torch.compile if applied
+                torch.save(raw.state_dict(), os.path.join(checkpoint_dir, checkpoint_name))
+
+            # TensorBoard scalars
+            if writer:
+                writer.add_scalar("Loss/train", train_stats["total"], epoch)
+                writer.add_scalar("Loss/val",   val_stats["total"],   epoch)
+                writer.add_scalar("Loss/ce_train",   train_stats["loss_ce"],   epoch)
+                writer.add_scalar("Loss/l1_train",   train_stats["loss_l1"],   epoch)
+                writer.add_scalar("Loss/giou_train", train_stats["loss_giou"], epoch)
+                writer.add_scalar("Accuracy/train",  train_stats["acc"], epoch)
+                writer.add_scalar("Accuracy/val",    val_stats["acc"],   epoch)
+
+            # JSON progress file — polled by the Streamlit UI every few seconds
+            with open(os.path.join(output_dir, "training_progress.json"), "w") as _f:
+                json.dump({
+                    "epoch": epoch + 1,
+                    "total_epochs": epochs,
+                    "status": "running",
+                    "history": history,
+                    "best_val_loss": best_val_loss,
+                }, _f)
 
     # ── Plot + cleanup ───────────────────────────────────────────────────────
+    if writer:
+        writer.close()
+
     if is_main_process():
+        # Mark training complete so the UI shows the correct status
+        with open(os.path.join(output_dir, "training_progress.json"), "w") as _f:
+            json.dump({
+                "epoch": epochs,
+                "total_epochs": epochs,
+                "status": "completed",
+                "history": history,
+                "best_val_loss": best_val_loss,
+            }, _f)
         plot_history(history, output_dir)
 
     if is_distributed():

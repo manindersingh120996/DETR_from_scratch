@@ -1,6 +1,30 @@
+# Dataset (large, not source code)
 # coco_mini/
 val2017/
 val2017_annotations/
-__pycache__/
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Editor temp files
+*.tmp
+*.tmp.*
+*.swp
+*.swo
+
+# Checkpoints (large binary files)
 *.pth
+!checkpoints/.gitkeep
+
+# Outputs (generated at runtime)
+outputs/
+!outputs/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
