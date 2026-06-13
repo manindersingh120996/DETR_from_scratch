@@ -4,6 +4,8 @@ A clean, from-scratch implementation of [DETR (Detection Transformer)](https://a
 
 Runs entirely from the terminal — no Jupyter required. Supports CUDA, Apple Silicon (MPS), and CPU out of the box, with optional multi-GPU training via PyTorch DDP.
 
+NOTE : The detailed blog around it's [implementation can be accessed from here](https://medium.com/@manindersingh120996/building-detr-from-scratch-an-end-to-end-walkthrough-of-object-detection-with-transformers-77f18691d329)
+
 ---
 
 ## Project Structure
